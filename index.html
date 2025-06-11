@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .video-container {
+            width: 80%;
+            max-width: 800px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        video {
+            width: 100%;
+            display: block;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <h1>My Video</h1>
+        <video controls autoplay muted>
+            <source src="https://files.catbox.moe/fcthz2.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+</body>
+</html>
