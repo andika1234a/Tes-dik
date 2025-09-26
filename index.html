@@ -1,46 +1,174 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Display</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
-        }
-        .video-container {
-            width: 80%;
-            max-width: 800px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-        video {
-            width: 100%;
-            display: block;
-            border-radius: 4px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Galeri Foto</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    #loginBox { text-align: center; margin-bottom: 20px; }
+    #statusMsg { margin-top: 10px; font-weight: bold; }
+    .loading { color: blue; }
+    .success { color: green; }
+    .error { color: red; }
+    #gallery { display: grid; grid-template-columns: repeat(auto-fill,minmax(250px,1fr)); gap: 15px; }
+    .photo-card { background: #fff; border-radius: 8px; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .photo-card img { width: 100%; border-radius: 8px; }
+    .actions { margin-top: 5px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+    .comments { margin-top: 10px; font-size: 14px; max-height: 100px; overflow-y: auto; }
+    .comment { margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 3px; }
+    #search { margin: 15px auto; display: block; padding: 10px; width: 80%; max-width: 400px; }
+  </style>
 </head>
 <body>
-    <div class="video-container">
-        <h1>My Video</h1>
-        <video controls autoplay muted>
-            <source src="https://files.catbox.moe/fcthz2.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
+  <h1>📸 Galeri Foto</h1>
+
+  <!-- Login password -->
+  <div id="loginBox">
+    <input type="password" id="password" placeholder="Masukkan password untuk upload">
+    <button onclick="checkPassword()">Login</button>
+    <div id="statusMsg"></div>
+  </div>
+
+  <!-- Upload hanya muncul setelah login -->
+  <div id="uploadBox" style="display:none; text-align:center; margin-bottom:20px;">
+    <p style="color:green; font-weight:bold;">✅ Key benar, silahkan upload foto</p>
+    <input type="file" id="photoInput">
+    <button onclick="uploadPhoto()">Upload Foto</button>
+  </div>
+
+  <!-- Pencarian -->
+  <input type="text" id="search" placeholder="Cari foto...">
+
+  <!-- Galeri -->
+  <div id="gallery"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js"></script>
+
+  <script>
+    // 🔥 Firebase config (ganti dengan punyamu)
+    const firebaseConfig = {
+      apiKey: "AIzaSyCx2hqab1MAV_4NbnyEMKVRddry1_2ScNo",
+      authDomain: "project-2-e9457.firebaseapp.com",
+      projectId: "project-2-e9457",
+      storageBucket: "project-2-e9457.appspot.com",
+      messagingSenderId: "244673617483",
+      appId: "1:244673617483:web:47e53c4ddf5d27d15277ce"
+    };
+
+    // Init Firebase (versi compat agar mudah)
+    const app = firebase.initializeApp(firebaseConfig);
+    const storage = firebase.storage();
+    const db = firebase.firestore();
+
+    // 🔑 Password upload
+    const OWNER_PASSWORD = "12345"; // ubah sesuai keinginan
+
+    function checkPassword() {
+      const pw = document.getElementById("password").value;
+      const statusMsg = document.getElementById("statusMsg");
+      statusMsg.textContent = "⏳ Memeriksa key...";
+      statusMsg.className = "loading";
+
+      setTimeout(() => {
+        if (pw === OWNER_PASSWORD) {
+          statusMsg.textContent = "✅ Key benar, silahkan upload foto";
+          statusMsg.className = "success";
+          document.getElementById("uploadBox").style.display = "block";
+          document.getElementById("loginBox").style.display = "none";
+        } else {
+          statusMsg.textContent = "❌ Key salah, beli akses dulu";
+          statusMsg.className = "error";
+        }
+      }, 1000); // delay biar ada efek loading
+    }
+
+    // Upload foto
+    async function uploadPhoto() {
+      const file = document.getElementById("photoInput").files[0];
+      if (!file) return alert("Pilih foto dulu!");
+
+      const ref = storage.ref("photos/" + Date.now() + "_" + file.name);
+      await ref.put(file);
+      const url = await ref.getDownloadURL();
+
+      await db.collection("photos").add({
+        url,
+        likes: 0,
+        created: new Date()
+      });
+
+      loadPhotos();
+    }
+
+    // Load foto
+    async function loadPhotos() {
+      const gallery = document.getElementById("gallery");
+      gallery.innerHTML = "";
+      const snap = await db.collection("photos").orderBy("created","desc").get();
+      snap.forEach(doc => {
+        const data = doc.data();
+        const div = document.createElement("div");
+        div.className = "photo-card";
+        div.innerHTML = `
+          <img src="${data.url}">
+          <div class="actions">
+            <button onclick="likePhoto('${doc.id}', ${data.likes})">❤️ ${data.likes}</button>
+            <input type="text" id="comment-${doc.id}" placeholder="Tulis komentar...">
+            <button onclick="addComment('${doc.id}')">Kirim</button>
+          </div>
+          <div class="comments" id="comments-${doc.id}"></div>
+        `;
+        gallery.appendChild(div);
+        loadComments(doc.id);
+      });
+    }
+
+    // Like foto
+    async function likePhoto(id, currentLikes) {
+      await db.collection("photos").doc(id).update({
+        likes: currentLikes + 1
+      });
+      loadPhotos();
+    }
+
+    // Tambah komentar
+    async function addComment(photoId) {
+      const input = document.getElementById("comment-" + photoId);
+      const text = input.value;
+      if (!text) return;
+      await db.collection("photos").doc(photoId).collection("comments").add({
+        text,
+        created: new Date()
+      });
+      input.value = "";
+      loadComments(photoId);
+    }
+
+    // Load komentar
+    async function loadComments(photoId) {
+      const div = document.getElementById("comments-" + photoId);
+      div.innerHTML = "";
+      const snap = await db.collection("photos").doc(photoId).collection("comments").orderBy("created").get();
+      snap.forEach(c => {
+        div.innerHTML += `<div class="comment">💬 ${c.data().text}</div>`;
+      });
+    }
+
+    // Pencarian
+    document.getElementById("search").addEventListener("input", function() {
+      const q = this.value.toLowerCase();
+      const cards = document.querySelectorAll(".photo-card");
+      cards.forEach(card => {
+        const txt = card.innerText.toLowerCase();
+        card.style.display = txt.includes(q) ? "block" : "none";
+      });
+    });
+
+    loadPhotos();
+  </script>
 </body>
 </html>
